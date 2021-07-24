@@ -2,39 +2,39 @@ version: 2.1
 
             
 jobs:
-  build-frontend:
+
+  build-backend:
     docker:
       - image: circleci/node:13.8.0
     steps:
       - checkout
       - restore_cache:
-          keys: [frontend-build]
+          keys: [backend-build]
       - run:
-          name: Build front-end
+          name: Back-end build
           command: |
-            cd frontend
+            cd backend
             npm i
-            npm run build
+            npm run build  
       - save_cache:
-          paths: [frontend/node_modules]
-          key: frontend-build
+          paths: [backend/node_modules]
+          key: backend-build
 
-
-  test-frontend:
+  test-backend:
     docker:
-      - image: circleci/node:13.8.0 
+      - image: circleci/node:13.8.0
     steps:
-      - checkout
+      - checkout 
       - run:
-          name: test frontend
+          name: test backend
           command: |
-            cd frontend
+            cd backend
             npm i
             npm test
-                
+            
 workflows:
   default:
     jobs:
-      - build-frontend
-      - test-frontend:
-          requires: [build-frontend]
+      - build-backend
+      - test-backend:
+          requires: [build-backend]
