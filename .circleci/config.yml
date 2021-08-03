@@ -117,6 +117,25 @@ jobs:
       - restore_cache:
           key: v1-backend-build
   
+  deploy-infrastructure:
+    docker:
+      - image: amazon/aws-cli
+    steps:
+      # Checkout code from git
+      - checkout
+      - run:
+          name: Install dependencies
+          command: yum install -y tar gzip
+      - run:
+          name: Ensure back-end infrastructure exists
+          working_directory: ./.circleci/files
+          command: |
+            aws cloudformation deploy \
+              --template-file backend.yml \
+              --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
+              --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
+              --tags project=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+  
   run-migrations:
     docker:
       - image: circleci/node:13.8.0
@@ -162,3 +181,13 @@ workflows:
       - scan-frontend:
           requires: 
             - build-frontend
+      - deploy-infrastructure:
+          requires: 
+            - test-frontend 
+            - test-backend 
+            - scan-frontend 
+            - scan-backend
+          filters:
+            branches:
+              only: 
+                - master
