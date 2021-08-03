@@ -135,6 +135,36 @@ jobs:
               --stack-name "udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
               --tags project=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+            
+   configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.12
+    steps:
+      - checkout
+      # Add ssh keys with fingerprint
+      - add_ssh_keys:
+          fingerprints: ["3d:cd:4d:9c:a1:da:e4:f4:9e:7b:d2:69:09:5e:a4:fd"]
+      # attach workspace
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          working_directory: ./.circleci/ansible
+          command: |
+            apk add --update ansible
+            ansible --version
+            pip3 install --upgrade pip
+            pip3 install awscli
+            aws --version
+      - run:
+          name: Configure server
+          working_directory: ./.circleci/ansible
+          command: |
+            pwd &&
+            ls -la
+            cat inventory
+            ansible-playbook -i inventory configure-server.yml
+      - destroy-environment
   
   run-migrations:
     docker:
