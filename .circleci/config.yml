@@ -352,7 +352,7 @@ workflows:
             - test-frontend 
             - test-backend 
             - scan-frontend 
-           - scan-backend
+            - scan-backend
           filters:
             branches:
               only: 
