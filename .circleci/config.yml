@@ -171,7 +171,7 @@ jobs:
               --template-file backend.yml \
               --stack-name "udapeople-${CIRCLE_WORKFLOW_ID:0:7}" \
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
-              --tags project=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
+              --tags project=udapeople-${CIRCLE_WORKFLOW_ID:0:7}
               exit 1
 
   configure-infrastructure:
@@ -353,14 +353,14 @@ workflows:
 #            - test-backend 
 #            - scan-frontend 
 #            - scan-backend
-#          filters:
- #           branches:
- #             only: 
-  #              - master
+          filters:
+            branches:
+              only: 
+                - master
     # added a comment
-#      - configure-infrastructure:
-#          requires: 
-#            - deploy-infrastructure
+      - configure-infrastructure:
+          requires: 
+            - deploy-infrastructure
 #      - run-migrations:
 #          requires: 
 #            - configure-infrastructure
