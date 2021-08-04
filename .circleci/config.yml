@@ -1,4 +1,24 @@
 version: 2.1
+
+
+commands:
+  destroy-environment:
+    description: Destroy back-end and front-end cloudformation stacks given a workflow ID.
+    parameters:
+      # Add parameter here   
+    steps:
+      - run:
+          name: Destroy environments
+          when: on_fail
+          command: |
+            aws cloudformation delete-stack --stack-name backend-${CIRCLE_WORKFLOW_ID:0:7}
+            aws cloudformation delete-stack --stack-name frontend-${CIRCLE_WORKFLOW_ID:0:7}
+      - run:
+          name: Delete s3 bucket
+          when: on_fail
+          command: |
+            aws s3 rm s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
+            exit 0
         
 jobs:
   install-backend-dependencies:
@@ -136,32 +156,130 @@ jobs:
               --parameter-overrides ID="${CIRCLE_WORKFLOW_ID:0:7}" \
               --tags project=udapeople-backend-${CIRCLE_WORKFLOW_ID:0:7}
               exit 1
-           
+
+  configure-infrastructure:
+    docker:
+      - image: python:3.7-alpine3.12
+    steps:
+      - checkout
+      # Add ssh keys with fingerprint
+      - add_ssh_keys:
+          fingerprints: ["3d:cd:4d:9c:a1:da:e4:f4:9e:7b:d2:69:09:5e:a4:fd"]
+      # attach workspace
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install dependencies
+          working_directory: ./.circleci/ansible
+          command: |
+            apk add --update ansible
+            ansible --version
+            pip3 install --upgrade pip
+            pip3 install awscli
+            aws --version
+      - run:
+          name: Configure server
+          working_directory: ./.circleci/ansible
+          command: |
+            pwd &&
+            ls -la
+            cat inventory
+            ansible-playbook -i inventory configure-server.yml
+
+  run-migrations:
+    docker:
+      - image: circleci/node:13.8.0
+    steps:
+      - checkout
+      - attach_workspace:
+          at: .
+      - run:
+          name: Install AWS CLI dependencies
+          working_directory: /tmp
+          command: |
+            sudo apt-get update && sudo apt-get install -yy less
+            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+            unzip awscliv2.zip
+            sudo ./aws/install
+      - run:
+          name: Run migrations
+          working_directory: ./backend
+          command: |
+            npm install
+            npm run migrations > migration_status
+
+  deploy-backend:
+    docker:
+      - image: python:3.9.0-alpine
+    steps:
+      - checkout
+      - add_ssh_keys:
+          fingerprints: ["a8:4c:f9:05:9e:8f:f3:86:c5:20:14:9a:f8:df:8a:31"]
+      - attach_workspace:
+          at: .
+    
+      - run:
+          name: Install dependencies
+          working_directory: ./.circleci/ansible
+          command: |
+            apk add --update ansible curl rsync openssh nodejs npm
+            ansible --version
+            pip3 install --upgrade pip
+            pip3 install awscli
+            aws --version 
+            export ANSIBLE_HOST_KEY_CHECKING=False
+      - run:
+          name: Deploy backend
+          working_directory: ./.circleci/ansible          
+          command: |
+            export ANSIBLE_HOST_KEY_CHECKING=False 
+            export host_key_checking=False
+            export record_host_keys=False
+            cat inventory
+            ansible-playbook -i inventory deploy-backend.yml -vv
+      # Here's where you will add some code to rollback on failure
+      - destroy-environment
+
 workflows:
   default:
     jobs:
-     # - install-backend-dependencies
-     # - install-frontend-dependencies
-     # - build-frontend:
-     #     requires:
-      #      - install-frontend-dependencies
-      #- build-backend:
-      #    requires:
-      #      - install-backend-dependencies
-      #- test-frontend:
-      #    requires: 
-      #      - build-frontend
-      #- test-backend:
-      #    requires: 
-      #      - build-backend
-      #- scan-backend:
-      #    requires: 
-       #     - build-backend
-      #- scan-frontend:
-      #    requires: 
-      #      - build-frontend
+      - install-backend-dependencies
+      - install-frontend-dependencies
+      - build-frontend:
+          requires:
+            - install-frontend-dependencies
+      - build-backend:
+          requires:
+            - install-backend-dependencies
+      - test-frontend:
+          requires: 
+            - build-frontend
+      - test-backend:
+          requires: 
+            - build-backend
+      - scan-backend:
+          requires: 
+            - build-backend
+      - scan-frontend:
+          requires: 
+            - build-frontend
       - deploy-infrastructure:
+          requires: 
+            - test-frontend 
+            - test-backend 
+            - scan-frontend 
+            - scan-backend
           filters:
             branches:
               only: 
                 - master
+    # added a comment
+      - configure-infrastructure:
+          requires: 
+            - deploy-infrastructure
+      - run-migrations:
+          requires: 
+            - configure-infrastructure
+      - deploy-backend:
+          requires: 
+            - run-migrations
